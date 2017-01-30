@@ -1,0 +1,804 @@
+# This file is made/ adapted by Esther Meeuwissen. For questions esther.meeuwissen@fcdonders.ru.nl
+# may2012 This file is adapted by Marijn Struiksma. For questions m.struiksma@uu.nl
+
+string naam1 = "Ella"; 											# naam participant
+string naam2 = "Kirsten"; 											# naam 3e persoon
+
+######################################			
+double refr_rate = 60.0;       #refreshrate monitor
+#double refr_dur = (1000.0/refr_rate);
+
+#int refr_dur = 28;
+int refr_dur = 17;
+int IWI = 150;     													#interword interval
+int waitodd = 1000;													#interval before the oddball task starts
+int time1;
+
+int duur = 300;														# define parameters; duur,
+int max_paragraphs = 1000;											# max_paragraphs,
+int max_lines = 1000;            								# max-lines,
+int stuur = 0;	
+
+
+#int stuurdelay = 0;
+output_port port = output_port_manager.get_port( 1 );   # define output poort as 'port' and port is the first output port (the number of output ports is defined as port_count)
+string itemlijst = "stim_lijstMS.txt";						# define parameter as a string string. the paramater is itemlist which is a .txt file
+string praclijst = "prac_lijstMS.txt";							# define parameter as a string string. the paramater is itemlist which is a .txt file
+
+# define variables for practice trials
+array<string> paragraphs1[max_paragraphs][max_lines];		# define an array with strings called paragrapghs1 with {1, ..., 1000}(max_paragraghs) and 1000 (max_lines) times
+int paragraph_count1 = 0;											# define paragragh_count1
+array<int> line_counts1[max_paragraphs]; 						# define array with integers called line_counts1 with {1,...,1000}
+# define variables for experimental trials
+array<string> paragraphs[max_paragraphs][max_lines];		# define an array with strings called paragrapghs with {1, ..., 1000}(max_paragraghs) and 1000 (max_lines) times
+int paragraph_count = 0;											# define paragragh_count# define paragragh_count
+array<int> line_counts[max_paragraphs]; 						# define array with integers called line_counts with {1,...,1000}
+
+#################################################################################
+# functions needed to read in data
+#################################################################################
+### returns the number of words in a string
+### words must be separated by 1 space only!
+
+sub																		
+   int count_words( string lines )								# define count_words (= number of words in a sentence) and string lines (contains all letters from word/sentences from the txt file)
+begin  																	# 
+   int count = 1;														# define count
+   loop 
+		int i = 1 														# define i (= the i-th letter/position in the sentence)
+	until i > lines.count() 										# loop until i larger than lines.count (= the last letter of the sentence)
+	begin																	
+      if (lines[i] == ' ') 										# if you encounter an empty spot in lines (a space), 
+      then	count = count + 1										# add 1 to count 										
+      end;
+      i = i + 1														# go to the nex letter/position and see what is there
+   end;
+   return count														# count is the number of words in the sentence from the txt file
+end;
+
+### splits string into an array of words
+### words must be separated by 1 space only
+
+sub
+   split( string lines, array<string,1>& words )			# split a string with letters into an array with the words of that sentence
+begin
+   int count = 1;														# def count  (number of words)
+   int pos = 1;														# def pos (begin letter of each word)
+   loop 
+	int i = 1 															# def i (number of letters)
+	until i > lines.count() 										# loop until i is larger than lines.count (= the last letter of the sentence)
+	begin
+      if (lines[i] == ' ') 										# at a space
+		then words[count] = lines.substring( pos, i - pos );# make a substring from begin till end of the word and put this in the array words at position count 
+           count = count + 1;										# count increases at space
+          pos = i + 1												# pos 1 higher (at the position of the first letter of the next word)
+      end;
+      i = i + 1														# i increases after each letter.
+   end;
+   words[count] = lines.substring( pos, lines.count() - pos + 1 ); # make a substring of the first letter till the last letter + the spatie after each word and put this in words at position count
+end;   
+                           
+#####################################################################################
+### read in the text for the practice trials
+##################################################################################### 
+
+input_file file1 = new input_file;								# define new file
+file1.open( praclijst );											# open the file, called itemlijst
+file1.set_delimiter(42);
+string temp1 = file1.get_line();									# define temp, string with text from the current file position until reaching a delimiter character (enter) 
+#int telm = 1 ;       												# def telm
+paragraph_count1 = 1;												# def paragraph_count, only relevant if you help multiple paragraphs in 1 file
+
+loop 
+until (!file1.last_succeeded()) 									# indicates if the last attempted read method succeeded
+begin
+	if (temp1.find("$")>0)
+	then paragraph_count1 = paragraph_count1 + 1;			# paragraph_count increases
+	else
+      line_counts1[paragraph_count1] = line_counts1[paragraph_count1] + 1; # count the number of lines/trials
+      paragraphs1[paragraph_count1][line_counts1[paragraph_count1]] = temp1; # in paragraph place the text from temp at the position of line_counts 
+   end;
+   temp1 = file1.get_line();											# fill temp with the next line
+end;
+
+array <int> practice [3] = {1,2,3};
+
+#######################################################################################
+# start the experiment
+######################################	
+port.send_code(201);
+start1.present();
+blankkort.present();
+ask_name.present();													# check that you have the correct subject name!
+name.set_caption( naam1 ); 
+name.redraw(); 
+check_name.present();
+blankkort.present();
+
+port.send_code(201);
+blankkort.present();
+oefen.present();														# present the practice trial
+oefen1.present();														# present the practice trial
+blankkort.present();
+term.print_line("start oefen");
+
+#####################################################################################
+### present the practice trials
+##################################################################################### 
+int max_blocks_prac = practice.count();
+
+loop
+   int h = 1															# def i
+until
+   h > max_blocks_prac												# loop from i larger than max_blocks 
+begin
+   # go through all lines
+	int nr_trials_prac=line_counts1[paragraph_count1];
+
+	int nr_paragraph1=practice[h]; 								# determine which conditie is presented
+	if h==1 then
+		eerstename.present();
+		blankkort.present();
+	else
+		breaks.present();
+		blankkort.present();
+		endpause.present();
+		blankkort.present();
+		names[nr_paragraph1].present(); 
+		blankkort.present();
+	end;
+
+	loop
+		int lines1 = 1;												# def lines #CHANGE THE NR OF TRIALS PRESENTED
+	until
+		lines1 > nr_trials_prac										# loop through all lines
+	begin               												
+		fixbeep.present();
+		blank.present();
+		# go through all words in the lines
+		array<string> words1[count_words( paragraphs1[h][lines1] )]; # make an array met het aantal with the number of words per trial
+
+		split( paragraphs1[h][lines1], words1 ); 				# split the array trial into an array 'words' with separate words
+		stuur = 0;														# def stuur
+		event.set_event_code( words1[1] ); 
+		trial1.present();
+
+		loop
+			int word1 = 2												# def word, a counter the number of words, the 1st word is the trial number
+		until
+			word1 > words1.count()									# loop until word is equal to the number of words in the sentence(=words.count)
+		begin          
+			text1.set_caption( words1[word1] );   				# the text that is put in word in text1 is the i-th word(int) in words(array with words)
+			text1.redraw();
+						
+			int letters1 = words1[word1].count();  			# def letters number of letters of each word  
+			duur = (letters1 * 30) + 290;       				# def duur (of the word on the screen) minimum 30 ms per letter + 290 ms 
+			if (letters1 > 10) then; duur = 590; end;			# more than 10 letters, max woordduur = 590
+			string first1 =  (words1[word1].substring(1, 1));  # def first as the first letter of the word (word before the critical word starts with an X) 
+			string CW1 = (words1[word1].substring(2, letters1-1)); # def CW as a string with the second till last letter of the word
+		  
+			if (word1 == 2) then; 									# marker trialnummer
+						text1.set_caption( words1[word1] ); 
+						text1.set_font_size(40);
+						text1.redraw();  
+
+						letters1 = words1[word1].count();	
+						duur = ((letters1) * 30) + 290;
+						if (letters1 > 10) then; duur = 590; end; 		
+						event.set_event_code( words1[word1] );   # word sent to logfile - begin trial: for the logfile 
+						string trialnummer1=words1[1];
+						int port_code_tnr=int (trialnummer1);	#trialnr for the port
+
+						pict1.present();
+
+						int time_pict1 = clock.time();
+						trial1.present();
+						
+						wait_until(time_pict1+refr_dur);			# time info to the port
+						
+						wait_until(time_pict1+duur);				# 
+						default.present();
+
+						trial2.present();
+
+						wait_until(time_pict1+duur+IWI);
+						
+			elseif (word1!=2)&&(first1 == "X" )  then;   	# if the first letter is an X		
+				#########################################
+				# word with X (cw-1)
+				text1.set_caption( CW1 ); 							# put in text 1 the second till last letter of the word(the word without X)
+				text1.set_font_size(40);
+				text1.redraw();
+				
+				letters1 = words1[word1].count(); 
+				duur = 365; 											# def time that the word is on the screen, fixed at 2,5*30+290 for 'is' and 'een'
+				if (letters1 > 10) then; duur = 590; end;
+				event.set_event_code( words1[word1] ); 		# trial event gest the word as event_code to send to the logfile
+				string trialnummer1=words1[1];
+		
+				pict1.present();
+				
+				int time_pict1 = clock.time();
+				trial1.present();
+				
+				wait_until(time_pict1+refr_dur);
+				
+				wait_until(time_pict1+duur);
+				default.present();
+				
+				trial2.present();
+				
+				wait_until(time_pict1+duur+IWI);
+																						
+				##########################################
+				# next word ; the critical word (cw)
+				word1 = word1+1; 										# 1 word after the Xword is the critical word
+				
+				letters1 = words1[word1].count();
+				duur = 1000;											# in this case the word is sentence final, so it's presented for 1000ms
+				first1 =  (words1[word1].substring(1, 1));    
+				CW1 = (words1[word1].substring(2, letters1-1)); 
+				text1.set_caption( CW1 ); 
+				text1.set_font_size(50);
+				text1.redraw(); 
+				
+				event.set_event_code( words1[word1] ); 
+
+				
+				if (first1 == "1" )  then; stuur =1; 			# 1=true, recode if necessary					
+				elseif (first1 == "2" ) then; stuur=2;			# 
+				end; 
+				
+				pict1.present();
+				
+				time_pict1 = clock.time();
+				trial1.present();
+				
+				wait_until(time_pict1+refr_dur);
+				
+				wait_until(time_pict1+duur);
+				default.present();
+				
+				trial2.present();
+				
+				wait_until(time_pict1+duur+IWI);
+									
+				
+			else;															# all words without an X in front
+			
+				text1.set_font_size(40);
+				text1.redraw(); 
+				
+				event.set_event_code( words1[word1]  );
+				letters1 = words1[word1].count(); 
+				duur = (letters1 * 30) + 290;
+				if (letters1 > 10) then; duur = 590; end;	
+				if (word1 == words1.count()) then; duur =1000; end; 
+
+				string trialnummer1=words1[1];
+				int port_code_tnr=int (trialnummer1);
+
+				pict1.present();
+				
+				int time_pict1 = clock.time();
+				trial1.present();
+				
+				wait_until(time_pict1+refr_dur);
+				
+				wait_until(time_pict1+duur);
+				default.present();
+				
+				trial2.present();
+				
+				wait_until(time_pict1+duur+IWI);
+				 
+			end;	
+			word1 = word1 + 1;										# to the next word in the sentence, go through the loop again
+		end;   # words loop            
+		
+																			      
+		blankkort.present();											# execute short blank trial
+		lines1 = lines1 + 1;  										# to the next line/sentence
+
+	end; # lines loop
+	h=h+1;
+end; # blocks loop
+
+oefenodd1.present();												# present practice task 2
+blank.present();
+oddfix.present();
+int time_pict2 = clock.time();
+wait_until(time_pict2+waitodd);
+##########################################
+# Oddball
+##########################################
+array <int> oddoefen[10] = {
+1,6,13,20,28,32,42,45,47,50};	# 10 positions oddball, blok1
+
+loop
+   int p = 1;
+	int q = 1;
+	int target = 0;
+until
+   p > 50												# loop from i larger than max_blocks p
+begin
+	target = oddoefen[q];
+	if (p == target) then; 
+		beephigh.present();
+		q=q+1;
+	else
+		beeplow.present();
+	end;
+	p=p+1;
+end; # trials oddball
+
+blank.present();
+eindeoefen.present();												# present end of practice
+term.print_line("einde oefen");
+#####################################################################################
+### read in the text
+##################################################################################### 
+
+input_file file = new input_file;								
+file.open( itemlijst );												
+file.set_delimiter(42);
+string temp = file.get_line();									
+paragraph_count = 1;													
+
+loop 
+until (!file.last_succeeded()) 									
+begin
+	if (temp.find("$")>0) then 
+		paragraph_count = paragraph_count + 1;				
+	else
+      line_counts[paragraph_count] = line_counts[paragraph_count] + 1; 
+      paragraphs[paragraph_count][line_counts[paragraph_count]] = temp; 
+   end;
+   temp = file.get_line();											
+end;
+term.print("nr paragraphs:");
+term.print(paragraph_count);
+term.print(" line_counts:");
+term.print(line_counts[paragraph_count]);
+term.print("\n");
+
+
+#####################################################################################
+### prepare pseudo random presentation
+##################################################################################### 
+# Arrays with trial/block/order information
+array <int> set1[10] = {
+1,2,10,3,9,4,8,5,7,6};	# 10 trials, blok1
+array <int> set2[10] = {
+3,4,2,5,1,6,10,7,9,8};	# 10 trials, blok2
+array <int> set3[10] = {
+5,6,4,7,3,8,2,9,1,10};	# 10 trials, blok3	
+array <int> set4[10] = {
+10,1,9,2,8,3,7,4,6,5}; # 10 trials, blok9
+array <int> set5[10] = {
+8,9,7,10,6,1,5,2,4,3}; # 10 trials, blok5
+array <int> set6[10] = {
+6,7,5,8,4,9,3,10,2,1}; # 10 trials, blok6
+
+# create an array trialvolgorde with all trial combintations
+array <int> trialvolgorde[18][10]; 
+trialvolgorde[1]=set1;
+trialvolgorde[2]=set1;
+trialvolgorde[3]=set1;
+trialvolgorde[4]=set2;
+trialvolgorde[5]=set2;
+trialvolgorde[6]=set2;
+trialvolgorde[7]=set3;
+trialvolgorde[8]=set3;
+trialvolgorde[9]=set3;
+trialvolgorde[10]=set4;
+trialvolgorde[11]=set4;
+trialvolgorde[12]=set4;
+trialvolgorde[13]=set5;
+trialvolgorde[14]=set5;
+trialvolgorde[15]=set5;
+trialvolgorde[16]=set6;
+trialvolgorde[17]=set6;
+trialvolgorde[18]=set6;
+          
+
+# Randomizatie van de condities
+# 1=1pC, 2=1pN, 3=1pB
+# 4=3pC, 5=3pN, 6=3pB
+
+# Volgorde A
+array <int> condities [18] = {
+2,3,1,5,6,4,				# numbers are condities 
+3,1,2,6,4,5,
+1,2,3,4,5,6};
+/*
+# volgorde B
+array <int> condities [18] = {
+3,1,2,6,4,5,				# numbers are condities 
+1,2,3,4,5,6,
+2,3,1,5,6,4};
+
+# volgorde C
+array <int> condities [18] = {
+1,2,3,4,5,6,				# numbers are condities 
+2,3,1,5,6,4,
+3,1,2,6,4,5};
+
+# volgorde D
+array <int> condities [18] = {
+5,6,4,2,3,1,				# numbers are condities 
+6,4,5,3,1,2,
+4,5,6,1,2,3};
+
+# volgorde E
+array <int> condities [18] = {
+6,4,5,3,1,2,				# numbers are condities 
+4,5,6,1,2,3,
+5,6,4,2,3,1};
+
+# volgorde F
+array <int> condities [18] = {
+4,5,6,1,2,3,				# numbers are condities 
+5,6,4,2,3,1,
+6,4,5,3,1,2};
+*/
+
+# Arrays with trial/block/order information for oddball
+array <int> odd1[20] = {
+5,9,15,20,23,30,34,39,42,49,53,56,65,69,72,76,83,88,92,100};	# 20 positions oddball, blok1
+array <int> odd2[20] = {
+3,6,12,16,24,27,33,40,44,48,51,57,64,68,74,76,84,89,95,100};	# 20 positions oddball, blok2
+array <int> odd3[20] = {
+4,10,12,20,25,27,31,37,41,49,55,57,62,70,73,77,85,90,92,97};	# 20 positions oddball, blok3
+array <int> odd4[20] = {
+2,7,11,19,25,28,33,38,42,50,53,58,62,66,74,78,84,86,91,97};	# 20 positions oddball, blok4
+array <int> odd5[20] = {
+3,7,15,18,21,26,31,39,43,46,55,59,61,66,71,76,81,90,93,99};	# 20 positions oddball, blok5
+array <int> odd6[20] = {
+2,8,11,16,21,28,35,40,43,50,54,57,61,69,75,80,84,87,92,99};	# 20 positions oddball, blok6
+array <int> odd7[20] = {
+4,7,11,20,25,29,31,40,45,49,51,59,63,70,72,78,82,86,93,100};	# 20 positions oddball, blok7
+array <int> odd8[20] = {
+3,6,15,19,24,28,32,38,45,50,54,60,64,66,71,77,82,89,95,99};	# 20 positions oddball, blok8
+array <int> odd9[20] = {
+2,10,14,17,22,28,35,39,41,48,51,56,62,67,73,79,85,88,91,100};	# 20 positions oddball, blok9
+array <int> odd10[20] = {
+4,8,14,19,23,26,31,38,44,46,55,60,65,70,75,78,81,88,95,98};	# 20 positions oddball, blok10
+array <int> odd11[20] = {
+5,10,13,20,24,30,32,37,41,48,51,58,62,68,75,79,81,89,92,96};	# 20 positions oddball, blok11
+array <int> odd12[20] = {
+5,7,14,20,23,29,32,36,45,48,55,58,64,67,73,80,82,87,94,98};	# 20 positions oddball, blok12
+array <int> odd13[20] = {
+4,6,14,18,21,27,35,38,45,47,54,58,61,68,72,80,85,87,91,98};	# 20 positions oddball, blok13
+array <int> odd14[20] = {
+3,10,12,17,24,26,35,37,44,50,52,56,65,69,71,78,84,88,93,96};	# 20 positions oddball, blok14
+array <int> odd15[20] = {
+5,8,11,18,22,29,33,39,43,47,52,60,63,69,71,79,83,90,94,97};	# 20 positions oddball, blok15
+array <int> odd16[20] = {
+3,9,13,18,21,29,33,36,42,47,53,59,65,68,74,77,83,87,94,96};	# 20 positions oddball, blok16
+array <int> odd17[20] = {
+4,9,13,16,22,30,34,37,44,47,52,59,63,67,72,77,83,89,95,97};	# 20 positions oddball, blok17
+array <int> odd18[20] = {
+2,6,13,19,22,26,34,36,41,46,53,59,64,70,73,76,81,86,91,99};	# 20 positions oddball, blok18
+
+array <int> oddvolgorde[18][20]; 
+oddvolgorde[1]=odd1;
+oddvolgorde[2]=odd2;
+oddvolgorde[3]=odd3;
+oddvolgorde[4]=odd4;
+oddvolgorde[5]=odd5;
+oddvolgorde[6]=odd6;
+oddvolgorde[7]=odd7;
+oddvolgorde[8]=odd8;
+oddvolgorde[9]=odd9;
+oddvolgorde[10]=odd10;
+oddvolgorde[11]=odd11;
+oddvolgorde[12]=odd12;
+oddvolgorde[13]=odd13;
+oddvolgorde[14]=odd14;
+oddvolgorde[15]=odd15;
+oddvolgorde[16]=odd16;
+oddvolgorde[17]=odd17;
+oddvolgorde[18]=odd18;
+
+
+
+
+#######################################################################################
+### go through all paragraphs
+#######################################################################################
+term.print_line("start experiment");
+blankkort.present();
+port.send_code(203);
+
+int max_blocks = condities.count();						# determine the maximun numbers of conditions
+
+loop
+   int i = 1													# def i
+until
+   i > max_blocks												# loop until i is larger than max_blocks 
+begin
+   # go through all lines
+	int nr_trials=line_counts[paragraph_count];
+	int nr_paragraph=condities[i]; 						# determine which condition is presented
+
+	scheldbegin.present();
+	blankkort.present();
+	#marker to signal the start of a block for task 1
+	int block_nr = i + 100;
+	port.send_code(block_nr);
+	blankkort.present();
+
+	names[nr_paragraph].present(); 
+	blankkort.present();
+
+	loop
+		int repeats = 1;
+	until
+		repeats > 3 #loop for 3 repetitions of all trials
+	begin
+		
+		loop
+			int lines = 1;										# def lines #HERE YOU CAN CHANGE WHICH LINES YOU PRESENT
+		until
+			lines > nr_trials		 							# loop through all lines
+		begin               												
+			fixbeep.present();
+			blank.present();
+			int trial_nr=trialvolgorde[i][lines];		# from a predefined order pick the relevant line
+			
+			# go through all words in the lines
+			array<string> words[count_words( paragraphs[nr_paragraph][trial_nr] )]; # make an array with the number of words per trial
+			term.print("blok:");
+			term.print(i);
+			term.print(" hh:");
+			term.print(repeats);
+			term.print(" trial:");
+			term.print(lines);
+			term.print(" nr:");
+			term.print(trial_nr);
+			term.print("\n");
+			split( paragraphs[nr_paragraph][trial_nr], words );# split the array trial into an array 'words' with separate words
+			stuur = 0;														# def stuur
+			event.set_event_code( words[1] ); 
+			trial1.present();
+			loop
+				int word = 2												# def word, a counter for the number of words, the 1st word is the trial number
+			until
+				word > words.count()										# loop until word equals the number of words in the sentence (=words.count)
+			begin          
+				text1.set_caption( words[word] );   				# the text put in text1 is the i-th word(int) in words(array with all words)
+				text1.redraw();
+							
+				int letters = words[word].count();  				# def letters with the number of letters of each word  
+				duur = (letters * 30) + 290;       					# def duur (presentation on the screen) minimum 30 ms per letter + 290 ms 
+				if (letters > 10) then; duur = 590; end;			# more than 10 letters, max woordduur = 590
+				string first =  (words[word].substring(1, 1));  # def first as the first letter of the woord (word before the critical word starts with X) 
+				string CW = (words[word].substring(2, letters-1)); # def CW as a string with the seond till last letter of the word
+			  
+				if (word == 2) then; 									# marker trialnummer
+							if nr_paragraph < 4 then
+								words[word]=naam1;
+							end;
+							if nr_paragraph > 3 then
+								words[word]=naam2;
+							end;
+							text1.set_caption( words[word] ); 
+							text1.set_font_size(40);
+							text1.redraw();  
+
+							letters = words[word].count();	
+							duur = ((letters) * 30) + 290;
+							if (letters > 10) then; duur = 590; end; 		
+							event.set_event_code( words[word] );    
+							string trialnummer=words[1];
+							int port_code_tnr=int (trialnummer);	#trialnr for port
+		
+							pict1.present();
+
+							int time_pict1 = clock.time();
+							trial1.present();
+							
+							wait_until(time_pict1+refr_dur);		# time info for port
+							port.send_code(port_code_tnr);
+							
+							wait_until(time_pict1+duur);			# 
+							default.present();
+							port.send_code(241);
+
+							trial2.present();
+
+							wait_until(time_pict1+duur+IWI);
+							
+				elseif (word!=2)&&(first == "X" )  then;   		# if the first letter is an X		
+					#########################################
+					# word with the X (cw-1)
+					text1.set_caption( CW ); 							# put in text1 the seond till last letter (the word without X)
+					text1.set_font_size(40);
+					text1.redraw();
+					
+					letters = words[word].count(); 
+					duur = 365; 				
+					if (letters > 10) then; duur = 590; end;
+					event.set_event_code( words[word] ); 			
+					string trialnummer=words[1];
+					int port_code_tnr=int (trialnummer);
+			
+					pict1.present();
+					
+					int time_pict1 = clock.time();
+					trial1.present();
+					
+					wait_until(time_pict1+refr_dur);
+					port.send_code(9);
+					
+					wait_until(time_pict1+duur);
+					default.present();
+					port.send_code(241);
+					
+					trial2.present();
+					
+					wait_until(time_pict1+duur+IWI);
+																							
+					##########################################
+					# next word ; the critical word (cw)
+					word = word+1; 										# 1 word after the Xword is the critical word
+					
+					letters = words[word].count();
+					duur = 1000;
+					first =  (words[word].substring(1, 1));    
+					CW = (words[word].substring(2, letters-1)); 
+					text1.set_caption( CW ); 
+					text1.set_font_size(50);
+					text1.redraw(); 
+					
+					event.set_event_code( words[word] ); 
+					
+					# send the code for the condition to the port
+					if (first == "1" )  then; stuur =1; 		# 1=1pC				
+					elseif (first == "2" ) then; stuur=2;		# 2=1pN
+					elseif (first == "3" ) then; stuur=3;		# 3=1pB
+					elseif (first == "4" ) then; stuur=4;		# 4=3pC
+					elseif (first == "5" ) then; stuur=5;		# 5=3pN
+					elseif (first == "6" ) then; stuur=6;		# 6=3pB
+					end; 
+
+					pict1.present();
+					
+					time_pict1 = clock.time();
+					trial1.present();
+					
+					wait_until(time_pict1+refr_dur);
+					port.send_code(stuur);
+					
+					wait_until(time_pict1+duur);
+					default.present();
+					port.send_code(241);
+					
+					trial2.present();
+					
+					wait_until(time_pict1+duur+IWI);
+										
+					
+				else;																# all words without X
+					text1.set_font_size(40);
+					text1.redraw(); 
+				
+					event.set_event_code( words[word]  );
+					letters = words[word].count(); 
+					duur = (letters * 30) + 290;
+					if (letters > 10) then; duur = 590; end;	
+					if (word == words.count()) then; duur =1000; end; 
+		
+					string trialnummer=words[1];
+					int port_code_tnr=int (trialnummer);
+
+					pict1.present();
+					
+					int time_pict1 = clock.time();
+					trial1.present();
+					
+					wait_until(time_pict1+refr_dur);
+					port.send_code(240);
+					
+					wait_until(time_pict1+duur);
+					default.present();
+					port.send_code(241);
+					
+					trial2.present();
+					
+					wait_until(time_pict1+duur+IWI);
+					 
+				end;	
+				word = word + 1;												# to the next word in the sentence, go throught the loop again 
+			end;   # words loop            
+			blankkort.present();
+			lines = lines + 1;  												# to the next line/sentenes
+
+		end; # lines loop
+		repeats = repeats + 1;												# to the next repeat of all trials in a condition
+	end; # repeats loop
+	port.send_code(211);
+	blank.present(); 
+
+
+	#short break before task 2
+	breaks.present();										# present the break before each condition
+	#marker to signal the end of a block for task 1
+	block_nr = i + 120;
+	port.send_code(block_nr);
+	blankkort.present();
+
+	oddbegin.present();									
+	term.print("blok:");
+	term.print(i);
+	term.print(" piepjes");
+	term.print("\n");
+	oddstart.present();
+	blank.present(); 
+	#marker to signal the start of a block for task 2
+	block_nr = i + 140;
+	port.send_code(block_nr);
+	blankkort.present();
+
+	oddfix.present();
+	int time_pict = clock.time();
+	wait_until(time_pict+waitodd);
+	#start task 2
+	loop
+		int p = 1;
+		int q = 1;
+		int target = 1;
+		int targetlast = 10;
+	until
+		p > 100												# loop from i larger than max_blocks p
+	begin
+		int port_code_nr=p;	#trialnr for the port
+		if q<21 then;	target = oddvolgorde[i][q]; end;
+		if (p == target-1) then;
+			port_code_nr=97; 
+			port.send_code(port_code_nr);
+			beeplow.present();
+		elseif (p == target) then;
+			port_code_nr=98; 
+			port.send_code(port_code_nr);
+			beephigh.present();
+			targetlast = oddvolgorde[i][q];
+			q=q+1;
+		elseif (p == targetlast+1) then; #after target the counter is increased, therefore look at target-1 pos
+			port_code_nr=99; 
+			port.send_code(port_code_nr);
+			beeplow.present();
+		else
+			port_code_nr=96; 
+			port.send_code(port_code_nr);
+			beeplow.present();
+		end;
+		p=p+1;
+	end; # trials oddball
+	oddend.present();
+
+	if i==6 then
+		breakslong1.present();									# present the long break after 6 conditions with some exercise
+		blankkort.present();
+		endpauselong.present();
+		blank.present();
+		port.send_code(204);
+	elseif (i == 12) then
+		breakslong1.present();									# present the long break after 6 conditions with some exercise
+		blankkort.present();
+		endpauselong.present();
+		blank.present();
+		port.send_code(205);
+	else
+		breaks.present();
+	end;
+	#marker to signal the end of a block for task 2
+	block_nr = i + 160;
+	port.send_code(block_nr);
+	blankkort.present();
+
+   i = i + 1;	
+end;
+einde.present();																# execute trial einde 
+										
